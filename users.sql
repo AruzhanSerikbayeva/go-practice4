@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    email VARCHAR(100) UNIQUE NOT NULL,
-    balance NUMERIC(10,2) DEFAULT 0
+   name TEXT NOT NULL,
+   email TEXT UNIQUE NOT NULL,
+   balance NUMERIC DEFAULT 0
 );
 -- просто для теста
 INSERT INTO users (name, email, balance) VALUES
