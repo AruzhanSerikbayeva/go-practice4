@@ -9,4 +9,5 @@ INSERT INTO users (name, email, balance) VALUES
 ('Gojo', 'gojo@example.com', 100.00),
 ('Eren', 'eren@example.com', 50.00),
 ('Naruto', 'naruto@example.com', 75.00);
+ON CONFLICT (email) DO NOTHING;
 
