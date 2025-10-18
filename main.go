@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// struct
 type User struct {
 	ID      int     `db:"id"`
 	Name    string  `db:"name"`
@@ -19,83 +20,94 @@ type User struct {
 }
 
 func main() {
+	// .env
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
-	connectionStr := os.Getenv("DATABASE_URL")
 
+	// db
+	connectionStr := os.Getenv("DATABASE_URL")
 	db, err := sqlx.Open("postgres", connectionStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
+	
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	// Insert a user
+	// add new user
 	u := User{Name: "Aruzhan", Email: "aruzhan@example.com", Balance: 1000000}
 	if err := InsertUser(db, u); err != nil {
 		log.Println("Insert user error:", err)
 	}
 
-	// Fetch all users
+	// all users
 	users, err := GetAllUsers(db)
 	if err != nil {
 		log.Println("Fetch all users error:", err)
 	}
-	fmt.Println("Users:", users)
+	fmt.Println("All users:", users)
 
-	// User by ID
+	// by id
 	u1, err := GetUserByID(db, 1)
 	if err != nil {
-		log.Println("Fetch user by id error:", err)
+		log.Println("Fetch user by ID error:", err)
 	}
-	fmt.Printf("User with id %v: %v", 1, u1)
+	fmt.Printf("User with ID %v: %+v\n", 1, u1)
 
-	// Transaction
-	if err := TransferBalance(db, 1, 4, 100); err != nil {
+	// транзакция
+	if err := TransferBalance(db, 1, 2, 100); err != nil {
 		log.Println("Transfer error:", err)
 	} else {
 		fmt.Println("Transfer completed successfully")
 	}
 }
 
+// add user
 func InsertUser(db *sqlx.DB, u User) error {
 	query := `INSERT INTO users (name, email, balance) VALUES (:name, :email, :balance)`
 	_, err := db.NamedExec(query, u)
 	return err
 }
+
+// all users
 func GetAllUsers(db *sqlx.DB) ([]User, error) {
 	var users []User
 	err := db.Select(&users, "SELECT * FROM users")
 	return users, err
 }
+
+// by ID
 func GetUserByID(db *sqlx.DB, id int) (User, error) {
 	var user User
 	err := db.Get(&user, "SELECT * FROM users WHERE id=$1", id)
 	return user, err
 }
+
+
 func TransferBalance(db *sqlx.DB, fromID, toID int, amount float64) error {
-	t, err := db.Beginx()
+	tx, err := db.Beginx()
 	if err != nil {
 		return err
 	}
 
-	// Take money
-	_, err = t.Exec(`UPDATE users SET balance = balance - $1 WHERE id = $2 AND balance >= $1`, amount, fromID)
+	// Списываем мани
+	_, err = tx.Exec(`UPDATE users SET balance = balance - $1 WHERE id = $2 AND balance >= $1`, amount, fromID)
 	if err != nil {
-		t.Rollback()
+		tx.Rollback()
 		return err
 	}
 
-	// Give money
-	_, err = t.Exec(`UPDATE users SET balance = balance + $1 WHERE id = $2`, amount, toID)
+	// Зачисляем мани
+	_, err = tx.Exec(`UPDATE users SET balance = balance + $1 WHERE id = $2`, amount, toID)
 	if err != nil {
-		t.Rollback()
+		tx.Rollback()
 		return err
 	}
-	return t.Commit()
+
+	return tx.Commit()
 }
